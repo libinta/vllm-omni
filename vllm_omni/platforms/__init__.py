@@ -106,12 +106,32 @@ def xpu_omni_platform_plugin() -> str | None:
 
     return "vllm_omni.platforms.xpu.platform.XPUOmniPlatform" if is_xpu else None
 
+def hpu_omni_platform_plugin() -> str | None:  
+    """Check if HPU OmniPlatform should be activated."""  
+    is_hpu = False  
+    logger.info("Libin debug Checking if HPU OmniPlatform is available.")  
+    try:   
+        import torch  
+  
+        if hasattr(torch, "hpu") and torch.hpu.is_available():  
+            is_hpu = True  
+            from vllm_omni.platforms.hpu import HPUOmniPlatform  
+  
+            # Set distributed backend for HPU  
+            HPUOmniPlatform.dist_backend = "hccl"  
+            logger.info("Confirmed %s backend is available.", HPUOmniPlatform.dist_backend)  
+            logger.info("Confirmed HPU platform is available.")  
+    except Exception as e:  
+        logger.debug("HPU omni platform is not available because: %s", str(e))  
+  
+    return "vllm_omni.platforms.hpu.platform.HPUOmniPlatform" if is_hpu else None
 
 builtin_omni_platform_plugins = {
     "cuda": cuda_omni_platform_plugin,
     "rocm": rocm_omni_platform_plugin,
     "npu": npu_omni_platform_plugin,
     "xpu": xpu_omni_platform_plugin,
+    "hpu": hpu_omni_platform_plugin,
 }
 
 
@@ -120,14 +140,18 @@ def resolve_current_omni_platform_cls_qualname() -> str:
     platform_plugins = load_omni_plugins_by_group(OMNI_PLATFORM_PLUGINS_GROUP)
 
     activated_plugins = []
-
+    print(f"DEBUG: {list(builtin_omni_platform_plugins.keys())=} {list(platform_plugins.keys())=}")
     for name, func in chain(builtin_omni_platform_plugins.items(), platform_plugins.items()):
         try:
             assert callable(func)
             platform_cls_qualname = func()
+            print(f"DEBUG: Plugin 1 {platform_cls_qualname} ")  
             if platform_cls_qualname is not None:
                 activated_plugins.append(name)
         except Exception:
+            print(f"DEBUG: Plugin {name} failed with: {e}")  
+            import traceback  
+            traceback.print_exc()
             pass
 
     activated_builtin_plugins = list(set(activated_plugins) & set(builtin_omni_platform_plugins.keys()))
@@ -146,7 +170,9 @@ def resolve_current_omni_platform_cls_qualname() -> str:
     else:
         platform_cls_qualname = "vllm_omni.platforms.interface.UnspecifiedOmniPlatform"
         logger.debug("No platform detected, vLLM-Omni is running on UnspecifiedOmniPlatform")
-
+    
+    print(f"DEBUG: activated_plugins = {activated_plugins}")  
+    print(f"DEBUG: activated_builtin_plugins = {activated_builtin_plugins}")
     return platform_cls_qualname
 
 
@@ -166,6 +192,7 @@ def __getattr__(name: str):
             _current_omni_platform = resolve_obj_by_qualname(platform_cls_qualname)()
             global _init_trace
             _init_trace = "".join(traceback.format_stack())
+            print(f"DEBUG: Resolved platform class: {platform_cls_qualname}")
         return _current_omni_platform
     elif name in globals():
         return globals()[name]
