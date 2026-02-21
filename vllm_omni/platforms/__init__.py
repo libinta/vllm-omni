@@ -113,7 +113,8 @@ def hpu_omni_platform_plugin() -> str | None:
   
         if hasattr(torch, "hpu") and torch.hpu.is_available():  
             is_hpu = True  
-            from vllm_omni.platforms.hpu import HPUOmniPlatform  
+            from vllm_omni.platforms.hpu import HPUOmniPlatform
+            HPUOmniPlatform.activate()
   
             # Set distributed backend for HPU  
             HPUOmniPlatform.dist_backend = "hccl"  

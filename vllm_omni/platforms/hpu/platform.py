@@ -18,7 +18,11 @@ class HPUOmniPlatform(OmniPlatform, HpuPlatform):
     and adds Omni-specific interfaces from OmniPlatform.  
     """  
     _omni_enum = OmniPlatformEnum.HPU  
-  
+    @classmethod  
+    def activate(cls):  
+        """Activate this platform for both vLLM and vLLM-Omni."""  
+        # Set vLLM's current_platform to use HPU  
+        current_platform.__class__ = cls
     @classmethod  
     def get_omni_ar_worker_cls(cls) -> str:  
         return "vllm_omni.platforms.hpu.worker.hpu_ar_worker.HPUARWorker"  
@@ -79,3 +83,17 @@ class HPUOmniPlatform(OmniPlatform, HpuPlatform):
         # Return the device memory usage in bytes.
         free_hpu_memory, _ = torch.hpu.mem_get_info()
         return free_hpu_memory
+    
+    @classmethod
+    def get_current_memory_usage(cls, device: torch.device | None = None) -> float:  
+        """Return current memory usage in bytes for HPU devices."""  
+        # Return the device memory usage in bytes.
+        print(f"LIBIN DEBUG get_current_memory_usage")
+        free_hpu_memory, total_hpu_memory = torch.hpu.mem_get_info()
+        return total_hpu_memory - free_hpu_memory
+    
+    @classmethod  
+    @property  
+    def dist_backend(cls) -> str:  
+        """Return the distributed backend for HPU devices."""  
+        return "hccl"

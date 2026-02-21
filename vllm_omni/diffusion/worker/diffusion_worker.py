@@ -464,9 +464,19 @@ class WorkerProc:
         custom_pipeline_args: dict[str, Any] | None = None,
     ) -> None:
         """Worker initialization and execution loops."""
+        try:  
+            import torch  
+            if hasattr(torch, "hpu") and torch.hpu.is_available():  
+                from vllm.platforms import current_platform  
+                from vllm_omni.platforms.hpu.platform import HPUOmniPlatform  
+                current_platform.__class__ = HPUOmniPlatform  
+        except Exception as e:  
+            logger.warning(f"Failed to activate HPU platform: {e}") 
         from vllm_omni.plugins import load_omni_general_plugins
 
         load_omni_general_plugins()
+        
+
         worker_proc = WorkerProc(
             od_config,
             gpu_id=rank,
